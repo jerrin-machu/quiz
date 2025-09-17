@@ -5,8 +5,8 @@ pipeline {
     PROD_SSH_USER = 'jerrin'
     PROD_APP_DIR  = '/srv/react-app'
     DEPLOY_CRED   = 'deploy-key'
-    
-    npm_config_cache = "${WORKSPACE}/.npm-cache"}
+
+    npm_config_cache = "${WORKSPACE}/.npm-cache"
   }
 
   stages {
