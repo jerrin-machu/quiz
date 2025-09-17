@@ -1,49 +1,67 @@
 pipeline {
-  agent { docker { image 'node:18' } }   // whole pipeline runs inside Node container
-  environment {
-    PROD_SSH_HOST = '192.168.50.187'
-    PROD_SSH_USER = 'jerrin'
-    PROD_APP_DIR  = '/srv/react-app'
-    DEPLOY_CRED   = 'deploy-key'
+    agent any
 
-    npm_config_cache = "${WORKSPACE}/.npm-cache"
-  }
-
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    environment {
+        PROD_SSH_HOST = '192.168.50.187'
+        PROD_SSH_USER = 'jerrin'
+        PROD_DEPLOY_DIR = '/srv/react-app'
     }
-stage('Install & Build') {
-    steps {
-        sh '''#!/bin/bash
-        # Ensure npm cache folder exists inside workspace
-        mkdir -p "$WORKSPACE/.npm-cache"
-        npm config set cache "$WORKSPACE/.npm-cache"
-        
-        # Install dependencies cleanly
-        npm ci
-        
-        # Build React app
-        npm run build
-        '''
-    }
-}
 
-    stage('Copy build to remote') {
-      steps {
-        sshagent([env.DEPLOY_CRED]) {
-          sh '''
-            scp -o StrictHostKeyChecking=no react-build.tar.gz ${PROD_SSH_USER}@${PROD_SSH_HOST}:/tmp/
-            ssh -o StrictHostKeyChecking=no ${PROD_SSH_USER}@${PROD_SSH_HOST} "
-              mkdir -p ${PROD_APP_DIR} &&
-              tar -xzf /tmp/react-build.tar.gz -C ${PROD_APP_DIR} --strip-components=1 &&
-              rm -f /tmp/react-build.tar.gz &&
-              chown -R ${PROD_SSH_USER}:${PROD_SSH_USER} ${PROD_APP_DIR} &&
-              sudo systemctl reload nginx || true
-            "
-          '''
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
         }
-      }
+
+        stage('Install & Build') {
+            agent {
+                docker {
+                    image 'node:18'
+                }
+            }
+            steps {
+                sh '''
+                    mkdir -p "$WORKSPACE/.npm-cache"
+                    npm config set cache "$WORKSPACE/.npm-cache"
+                    npm ci
+                    npm run build
+                    tar -czf react-build.tar.gz dist
+                '''
+            }
+        }
+
+        stage('Copy build to remote') {
+            steps {
+                sshagent(['jerrin']) {
+                    sh '''
+                        scp -o StrictHostKeyChecking=no react-build.tar.gz $PROD_SSH_USER@$PROD_SSH_HOST:/tmp/
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy on server') {
+            steps {
+                sshagent(['jerrin']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST "
+                            mkdir -p $PROD_DEPLOY_DIR &&
+                            tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR &&
+                            rm /tmp/react-build.tar.gz
+                        "
+                    '''
+                }
+            }
+        }
     }
-  }
+
+    post {
+        success {
+            echo "✅ React app deployed successfully!"
+        }
+        failure {
+            echo "❌ Deployment failed. Check logs."
+        }
+    }
 }
