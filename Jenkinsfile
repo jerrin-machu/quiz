@@ -13,15 +13,21 @@ pipeline {
     stage('Checkout') {
       steps { checkout scm }
     }
-
-    stage('Install & Build') {
-      steps {
-        sh  'npm config set cache $(pwd)/.npm-cache --global'
-        sh 'npm ci'
-        sh 'npm run build'
-        sh 'tar -czf react-build.tar.gz dist'
-      }
+stage('Install & Build') {
+    steps {
+        sh '''#!/bin/bash
+        # Ensure npm cache folder exists inside workspace
+        mkdir -p "$WORKSPACE/.npm-cache"
+        npm config set cache "$WORKSPACE/.npm-cache"
+        
+        # Install dependencies cleanly
+        npm ci
+        
+        # Build React app
+        npm run build
+        '''
     }
+}
 
     stage('Copy build to remote') {
       steps {
