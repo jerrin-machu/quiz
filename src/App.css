@@ -1,0 +1,62 @@
+.app {
+  font-family: sans-serif;
+  text-align: center;
+}
+.questions {
+  border: 1px solid #ddd;
+  width: 60%;
+  margin: 20px auto;
+  padding: 15px;
+  border-radius: 5px;
+}
+.questions h1 {
+  margin-bottom: 10px;
+}
+
+.options {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 10px;
+}
+
+.options > li > button {
+  margin-bottom: 10px;
+  width: 100%;
+}
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.results {
+  border: 1px solid black;
+  border-radius: 5px;
+  width: 60%;
+  margin: 20px auto;
+}
+
+.results ul {
+  list-style: none;
+}
+
+.results span {
+  color: red;
+  cursor: pointer;
+  font-weight: bold;
+  text-decoration: underline;
+}
+.results li {
+  margin-bottom: 10px;
+}
+
+.results li[data-correct="true"] {
+  color: green;
+}
+
+.results li[data-correct="false"]{
+  color: red;
+}
