@@ -5,6 +5,9 @@ pipeline {
     PROD_SSH_USER = 'jerrin'
     PROD_APP_DIR  = '/srv/react-app'
     DEPLOY_CRED   = 'deploy-key'
+    environment {
+    npm_config_cache = "${WORKSPACE}/.npm-cache"
+}
   }
 
   stages {
@@ -14,6 +17,7 @@ pipeline {
 
     stage('Install & Build') {
       steps {
+        sh  'npm config set cache $(pwd)/.npm-cache --global'
         sh 'npm ci'
         sh 'npm run build'
         sh 'tar -czf react-build.tar.gz dist'
