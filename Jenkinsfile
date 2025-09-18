@@ -109,23 +109,28 @@ pipeline {
                             echo 'Checking current ownership...' &&
                             ls -la $PROD_DEPLOY_DIR/ || true &&
                             
-                            echo 'Backing up previous deployment...' &&
-                            if [ -d $PROD_DEPLOY_DIR/backup ]; then 
-                                echo 'Removing old backup...' &&
-                                rm -rf $PROD_DEPLOY_DIR/backup || true
-                            fi &&
+                            # Use timestamp-based approach to avoid permission conflicts
+                            TIMESTAMP=\$(date +%Y%m%d_%H%M%S) &&
+                            TEMP_DIR=$PROD_DEPLOY_DIR/temp_\$TIMESTAMP &&
                             
-                            if [ -d $PROD_DEPLOY_DIR/current ]; then 
+                            echo 'Creating temporary deployment directory...' &&
+                            mkdir -p \$TEMP_DIR &&
+                            
+                            echo 'Extracting build files to temporary directory...' &&
+                            tar -xzf /tmp/react-build.tar.gz -C \$TEMP_DIR --strip-components=1 &&
+                            
+                            echo 'Backing up current deployment...' &&
+                            if [ -d $PROD_DEPLOY_DIR/current ]; then
+                                if [ -d $PROD_DEPLOY_DIR/backup ]; then
+                                    echo 'Removing old backup...' &&
+                                    rm -rf $PROD_DEPLOY_DIR/backup || true
+                                fi &&
                                 echo 'Moving current to backup...' &&
-                                cp -r $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup &&
-                                rm -rf $PROD_DEPLOY_DIR/current
+                                mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup || true
                             fi &&
                             
-                            echo 'Creating new current directory...' &&
-                            mkdir -p $PROD_DEPLOY_DIR/current &&
-                            
-                            echo 'Extracting build files...' &&
-                            tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
+                            echo 'Moving new deployment to current...' &&
+                            mv \$TEMP_DIR $PROD_DEPLOY_DIR/current &&
                             
                             echo 'Setting permissions...' &&
                             chmod -R 755 $PROD_DEPLOY_DIR/current &&
@@ -134,7 +139,10 @@ pipeline {
                             rm /tmp/react-build.tar.gz &&
                             
                             echo 'Deployment completed successfully' &&
-                            echo 'App deployed to: $PROD_DEPLOY_DIR/current'
+                            echo 'App deployed to: $PROD_DEPLOY_DIR/current' &&
+                            
+                            echo 'Final directory structure:' &&
+                            ls -la $PROD_DEPLOY_DIR/
                         "
                     '''
                 }
