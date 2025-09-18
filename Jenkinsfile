@@ -103,20 +103,39 @@ pipeline {
                     sh '''
                         echo "Deploying on remote server..."
                         ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST "
-                            echo 'Taking ownership of deployment directory...' &&
-                            sudo chown -R jerrin:jerrin $PROD_DEPLOY_DIR 2>/dev/null || true &&
                             echo 'Creating deployment directory...' &&
                             mkdir -p $PROD_DEPLOY_DIR &&
+                            
+                            echo 'Fixing ownership of entire deployment directory...' &&
+                            sudo chown -R jerrin:jerrin $PROD_DEPLOY_DIR &&
+                            
+                            echo 'Setting proper permissions...' &&
+                            sudo chmod -R 755 $PROD_DEPLOY_DIR &&
+                            
                             echo 'Backing up previous deployment...' &&
-                            if [ -d $PROD_DEPLOY_DIR/backup ]; then rm -rf $PROD_DEPLOY_DIR/backup; fi &&
-                            if [ -d $PROD_DEPLOY_DIR/current ]; then mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup; fi &&
+                            if [ -d $PROD_DEPLOY_DIR/backup ]; then 
+                                echo 'Removing old backup...' &&
+                                rm -rf $PROD_DEPLOY_DIR/backup
+                            fi &&
+                            
+                            if [ -d $PROD_DEPLOY_DIR/current ]; then 
+                                echo 'Moving current to backup...' &&
+                                mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup
+                            fi &&
+                            
+                            echo 'Creating new current directory...' &&
                             mkdir -p $PROD_DEPLOY_DIR/current &&
+                            
                             echo 'Extracting build files...' &&
                             tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
-                            echo 'Setting proper permissions for web server...' &&
+                            
+                            echo 'Setting final permissions for web server...' &&
+                            sudo chown -R jerrin:jerrin $PROD_DEPLOY_DIR &&
                             sudo chmod -R 755 $PROD_DEPLOY_DIR &&
+                            
                             echo 'Cleaning up...' &&
                             rm /tmp/react-build.tar.gz &&
+                            
                             echo 'Deployment completed successfully' &&
                             echo 'App deployed to: $PROD_DEPLOY_DIR/current'
                         "
