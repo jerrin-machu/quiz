@@ -4,7 +4,7 @@ pipeline {
     environment {
         PROD_SSH_HOST = '192.168.50.187'
         PROD_SSH_USER = 'jerrin'
-        PROD_DEPLOY_DIR = '/srv/react-app'
+        PROD_DEPLOY_DIR = '/home/jerrin/react-app'
         BUILD_DIR = 'dist' // change to 'build' if using CRA
     }
     
@@ -104,14 +104,17 @@ pipeline {
                         echo "Deploying on remote server..."
                         ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST "
                             echo 'Creating deployment directory...' &&
-                            sudo mkdir -p $PROD_DEPLOY_DIR &&
+                            mkdir -p $PROD_DEPLOY_DIR &&
+                            echo 'Backing up previous deployment...' &&
+                            if [ -d $PROD_DEPLOY_DIR/backup ]; then rm -rf $PROD_DEPLOY_DIR/backup; fi &&
+                            if [ -d $PROD_DEPLOY_DIR/current ]; then mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup; fi &&
+                            mkdir -p $PROD_DEPLOY_DIR/current &&
                             echo 'Extracting build files...' &&
-                            sudo tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR --strip-components=1 &&
-                            echo 'Setting permissions...' &&
-                            sudo chown -R www-data:www-data $PROD_DEPLOY_DIR &&
+                            tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
                             echo 'Cleaning up...' &&
                             rm /tmp/react-build.tar.gz &&
-                            echo 'Deployment completed successfully'
+                            echo 'Deployment completed successfully' &&
+                            echo 'App deployed to: $PROD_DEPLOY_DIR/current'
                         "
                     '''
                 }
