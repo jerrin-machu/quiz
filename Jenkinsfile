@@ -102,48 +102,48 @@ pipeline {
                 sshagent(['deploy-key']) {
                     sh '''
                         echo "Deploying on remote server..."
-                        ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST "
-                            echo 'Creating deployment directory...' &&
-                            mkdir -p $PROD_DEPLOY_DIR &&
+                        ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST '
+                            echo "Creating deployment directory..." &&
+                            mkdir -p '$PROD_DEPLOY_DIR' &&
                             
-                            echo 'Checking current ownership...' &&
-                            ls -la $PROD_DEPLOY_DIR/ || true &&
+                            echo "Checking current ownership..." &&
+                            ls -la '$PROD_DEPLOY_DIR'/ || true &&
                             
                             # Use timestamp-based approach to avoid permission conflicts
-                            TIMESTAMP=\$(date +%Y%m%d_%H%M%S) &&
-                            TEMP_DIR=$PROD_DEPLOY_DIR/temp_\$TIMESTAMP &&
+                            TIMESTAMP=$(date +%Y%m%d_%H%M%S) &&
+                            TEMP_DIR='$PROD_DEPLOY_DIR'/temp_$TIMESTAMP &&
                             
-                            echo 'Creating temporary deployment directory...' &&
-                            mkdir -p \$TEMP_DIR &&
+                            echo "Creating temporary deployment directory: $TEMP_DIR" &&
+                            mkdir -p $TEMP_DIR &&
                             
-                            echo 'Extracting build files to temporary directory...' &&
-                            tar -xzf /tmp/react-build.tar.gz -C \$TEMP_DIR --strip-components=1 &&
+                            echo "Extracting build files to temporary directory..." &&
+                            tar -xzf /tmp/react-build.tar.gz -C $TEMP_DIR --strip-components=1 &&
                             
-                            echo 'Backing up current deployment...' &&
-                            if [ -d $PROD_DEPLOY_DIR/current ]; then
-                                if [ -d $PROD_DEPLOY_DIR/backup ]; then
-                                    echo 'Removing old backup...' &&
-                                    rm -rf $PROD_DEPLOY_DIR/backup || true
+                            echo "Backing up current deployment..." &&
+                            if [ -d '$PROD_DEPLOY_DIR'/current ]; then
+                                if [ -d '$PROD_DEPLOY_DIR'/backup ]; then
+                                    echo "Removing old backup..." &&
+                                    rm -rf '$PROD_DEPLOY_DIR'/backup || true
                                 fi &&
-                                echo 'Moving current to backup...' &&
-                                mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup || true
+                                echo "Moving current to backup..." &&
+                                mv '$PROD_DEPLOY_DIR'/current '$PROD_DEPLOY_DIR'/backup || true
                             fi &&
                             
-                            echo 'Moving new deployment to current...' &&
-                            mv \$TEMP_DIR $PROD_DEPLOY_DIR/current &&
+                            echo "Moving new deployment to current..." &&
+                            mv $TEMP_DIR '$PROD_DEPLOY_DIR'/current &&
                             
-                            echo 'Setting permissions...' &&
-                            chmod -R 755 $PROD_DEPLOY_DIR/current &&
+                            echo "Setting permissions..." &&
+                            chmod -R 755 '$PROD_DEPLOY_DIR'/current &&
                             
-                            echo 'Cleaning up...' &&
+                            echo "Cleaning up..." &&
                             rm /tmp/react-build.tar.gz &&
                             
-                            echo 'Deployment completed successfully' &&
-                            echo 'App deployed to: $PROD_DEPLOY_DIR/current' &&
+                            echo "Deployment completed successfully" &&
+                            echo "App deployed to: '$PROD_DEPLOY_DIR'/current" &&
                             
-                            echo 'Final directory structure:' &&
-                            ls -la $PROD_DEPLOY_DIR/
-                        "
+                            echo "Final directory structure:" &&
+                            ls -la '$PROD_DEPLOY_DIR'/
+                        '
                     '''
                 }
             }
