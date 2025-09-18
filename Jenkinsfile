@@ -28,7 +28,7 @@ pipeline {
             npm config set cache "$WORKSPACE/.npm-cache" --userconfig "$WORKSPACE/.npmrc"
             npm ci || npm install
             npm run build
-            tar -czf react-build.tar.gz build/
+            tar -czf react-build.tar.gz $BUILD_DIR/
         '''
     }
 }
