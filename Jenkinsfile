@@ -111,6 +111,9 @@ pipeline {
                             mkdir -p $PROD_DEPLOY_DIR/current &&
                             echo 'Extracting build files...' &&
                             tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
+                            echo 'Setting proper permissions...' &&
+                            sudo chown -R www-data:www-data $PROD_DEPLOY_DIR &&
+                            sudo chmod -R 755 $PROD_DEPLOY_DIR &&
                             echo 'Cleaning up...' &&
                             rm /tmp/react-build.tar.gz &&
                             echo 'Deployment completed successfully' &&
