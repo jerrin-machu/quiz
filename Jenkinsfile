@@ -105,15 +105,18 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST "
                             echo 'Creating deployment directory...' &&
                             mkdir -p $PROD_DEPLOY_DIR &&
+                            echo 'Setting up shared group ownership...' &&
+                            sudo chown -R jerrin:deploy $PROD_DEPLOY_DIR &&
+                            sudo chmod -R 775 $PROD_DEPLOY_DIR &&
                             echo 'Backing up previous deployment...' &&
                             if [ -d $PROD_DEPLOY_DIR/backup ]; then rm -rf $PROD_DEPLOY_DIR/backup; fi &&
                             if [ -d $PROD_DEPLOY_DIR/current ]; then mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup; fi &&
                             mkdir -p $PROD_DEPLOY_DIR/current &&
                             echo 'Extracting build files...' &&
                             tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
-                            echo 'Setting proper permissions...' &&
-                            sudo chown -R www-data:www-data $PROD_DEPLOY_DIR &&
-                            sudo chmod -R 755 $PROD_DEPLOY_DIR &&
+                            echo 'Setting proper group permissions...' &&
+                            sudo chown -R jerrin:deploy $PROD_DEPLOY_DIR &&
+                            sudo chmod -R 775 $PROD_DEPLOY_DIR &&
                             echo 'Cleaning up...' &&
                             rm /tmp/react-build.tar.gz &&
                             echo 'Deployment completed successfully' &&
