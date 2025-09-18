@@ -15,22 +15,23 @@ pipeline {
             }
         }
 
-        stage('Install & Build') {
-            agent {
-                docker {
-                    image 'node:18'
-                }
-            }
-            steps {
-                sh '''
-                    mkdir -p "$WORKSPACE/.npm-cache"
-                    npm config set cache "$WORKSPACE/.npm-cache"
-                    npm ci || npm install
-                    npm run build
-                    tar -czf react-build.tar.gz $BUILD_DIR
-                '''
-            }
+    stage('Install & Build') {
+    agent {
+        docker {
+            image 'node:18'
+            args '-u root' // or use --user root to avoid permission issues
         }
+    }
+    steps {
+        sh '''
+            mkdir -p "$WORKSPACE/.npm-cache"
+            npm config set cache "$WORKSPACE/.npm-cache" --userconfig "$WORKSPACE/.npmrc"
+            npm ci || npm install
+            npm run build
+            tar -czf react-build.tar.gz build/
+        '''
+    }
+}
 
         stage('Copy build to remote') {
             steps {
