@@ -98,28 +98,32 @@ pipeline {
         }
         
         stage('Deploy on server') {
-    sshagent(credentials: ['jerrin']) {
-        sh '''
-            echo "Deploying on remote server..."
-            ssh -o StrictHostKeyChecking=no jerrin@192.168.50.187 "
-                echo 'Creating deployment directory...' &&
-                mkdir -p /home/jerrin/react-app &&
-                echo 'Backing up previous deployment...' &&
-                if [ -d /home/jerrin/react-app/backup ]; then rm -rf /home/jerrin/react-app/backup; fi &&
-                if [ -d /home/jerrin/react-app/current ]; then mv /home/jerrin/react-app/current /home/jerrin/react-app/backup; fi &&
-                mkdir -p /home/jerrin/react-app/current &&
-                echo 'Extracting build files...' &&
-                tar -xzf /tmp/react-build.tar.gz -C /home/jerrin/react-app/current --strip-components=1 &&
-                echo 'Setting permissions...' &&
-                chmod -R 755 /home/jerrin/react-app &&
-                echo 'Cleaning up...' &&
-                rm /tmp/react-build.tar.gz &&
-                echo 'Deployment completed successfully' &&
-                echo 'App deployed to: /home/jerrin/react-app/current'
-            "
-        '''
-    }
-}
+            steps {
+                sshagent(['deploy-key']) {
+                    sh '''
+                        echo "Deploying on remote server..."
+                        ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST "
+                            echo 'Taking ownership of deployment directory...' &&
+                            sudo chown -R jerrin:jerrin $PROD_DEPLOY_DIR 2>/dev/null || true &&
+                            echo 'Creating deployment directory...' &&
+                            mkdir -p $PROD_DEPLOY_DIR &&
+                            echo 'Backing up previous deployment...' &&
+                            if [ -d $PROD_DEPLOY_DIR/backup ]; then rm -rf $PROD_DEPLOY_DIR/backup; fi &&
+                            if [ -d $PROD_DEPLOY_DIR/current ]; then mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup; fi &&
+                            mkdir -p $PROD_DEPLOY_DIR/current &&
+                            echo 'Extracting build files...' &&
+                            tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
+                            echo 'Setting proper permissions for web server...' &&
+                            sudo chmod -R 755 $PROD_DEPLOY_DIR &&
+                            echo 'Cleaning up...' &&
+                            rm /tmp/react-build.tar.gz &&
+                            echo 'Deployment completed successfully' &&
+                            echo 'App deployed to: $PROD_DEPLOY_DIR/current'
+                        "
+                    '''
+                }
+            }
+        }
     }
     
     post {
