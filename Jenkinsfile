@@ -106,21 +106,19 @@ pipeline {
                             echo 'Creating deployment directory...' &&
                             mkdir -p $PROD_DEPLOY_DIR &&
                             
-                            echo 'Fixing ownership of entire deployment directory...' &&
-                            sudo chown -R jerrin:jerrin $PROD_DEPLOY_DIR &&
-                            
-                            echo 'Setting proper permissions...' &&
-                            sudo chmod -R 755 $PROD_DEPLOY_DIR &&
+                            echo 'Checking current ownership...' &&
+                            ls -la $PROD_DEPLOY_DIR/ || true &&
                             
                             echo 'Backing up previous deployment...' &&
                             if [ -d $PROD_DEPLOY_DIR/backup ]; then 
                                 echo 'Removing old backup...' &&
-                                rm -rf $PROD_DEPLOY_DIR/backup
+                                rm -rf $PROD_DEPLOY_DIR/backup || true
                             fi &&
                             
                             if [ -d $PROD_DEPLOY_DIR/current ]; then 
                                 echo 'Moving current to backup...' &&
-                                mv $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup
+                                cp -r $PROD_DEPLOY_DIR/current $PROD_DEPLOY_DIR/backup &&
+                                rm -rf $PROD_DEPLOY_DIR/current
                             fi &&
                             
                             echo 'Creating new current directory...' &&
@@ -129,9 +127,8 @@ pipeline {
                             echo 'Extracting build files...' &&
                             tar -xzf /tmp/react-build.tar.gz -C $PROD_DEPLOY_DIR/current --strip-components=1 &&
                             
-                            echo 'Setting final permissions for web server...' &&
-                            sudo chown -R jerrin:jerrin $PROD_DEPLOY_DIR &&
-                            sudo chmod -R 755 $PROD_DEPLOY_DIR &&
+                            echo 'Setting permissions...' &&
+                            chmod -R 755 $PROD_DEPLOY_DIR/current &&
                             
                             echo 'Cleaning up...' &&
                             rm /tmp/react-build.tar.gz &&
