@@ -160,27 +160,29 @@ pipeline {
             }
         }
 
-      stage('Reload Nginx') {
-            steps {
-                sshagent(['blackwidow-app-nginx']) {
-                    sh '''
-                        echo "Reloading Nginx..."
-                        ssh -t -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
-                            # Test nginx configuration first
-                            sudo nginx -t &&
-                            
-                            # Reload nginx to pick up any changes
-                            sudo systemctl reload nginx &&
-                            
-                            echo "✅ Nginx reloaded successfully" &&
-                            
-                            # Verify nginx is running
-                            # sudo systemctl status nginx --no-pager
-                        '
-                    '''
-                }
-            }
+stage('Reload Nginx') {
+    steps {
+        sshagent(['blackwidow-app-nginx']) {
+            sh """
+                echo "Reloading Nginx..."
+                ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} ${PROD_SSH_USER}@${PROD_SSH_HOST} bash << 'EOF'
+                    set -e
+                    # Test nginx configuration first
+                    sudo nginx -t
+
+                    # Reload nginx to pick up any changes
+                    sudo systemctl reload nginx
+
+                    echo "✅ Nginx reloaded successfully"
+
+                    # Verify nginx is running
+                    # sudo systemctl status nginx --no-pager
+                EOF
+            """
         }
+    }
+}
+
         }
 
 
