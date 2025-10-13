@@ -162,20 +162,19 @@ pipeline {
 
 stage('Reload Nginx') {
     steps {
-        sshagent(['blackwidow-app-nginx']) {
-            sh """
-                echo "Reloading Nginx..."
-              #!/bin/bash
-            echo "Reloading Nginx..."
-            ssh -o StrictHostKeyChecking=no -p 65518 jerrin@49.204.64.58 bash <<EOF
-            set -e
-            sudo nginx -t
-            sudo systemctl reload nginx
-            echo "✅ Nginx reloaded successfully"
-            EOF
-            """
-        }
+    sshagent(['blackwidow-app-nginx']) {
+        sh """
+           echo "Reloading Nginx..."
+           ssh -o StrictHostKeyChecking=no -p 65518 jerrin@49.204.64.58 '
+               set -e
+               sudo nginx -t
+               sudo systemctl reload nginx
+               echo "✅ Nginx reloaded successfully"
+           '
+        """
     }
+}
+
 }
 
         }
