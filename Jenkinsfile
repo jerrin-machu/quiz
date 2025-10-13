@@ -165,7 +165,7 @@ pipeline {
                 sshagent(['blackwidow-app-nginx']) {
                     sh '''
                         echo "Reloading Nginx..."
-                        ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
+                        ssh -t -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
                             # Test nginx configuration first
                             sudo nginx -t &&
                             
