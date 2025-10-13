@@ -1,5 +1,5 @@
 pipeline {
-     agent { label 'built-in' }
+     agent:any
     
     // environment {
     //     PROD_SSH_HOST = '192.168.50.187'
