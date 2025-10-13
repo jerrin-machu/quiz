@@ -165,19 +165,14 @@ stage('Reload Nginx') {
         sshagent(['blackwidow-app-nginx']) {
             sh """
                 echo "Reloading Nginx..."
-                ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} ${PROD_SSH_USER}@${PROD_SSH_HOST} bash << 'EOF'
-                    set -e
-                    # Test nginx configuration first
-                    sudo nginx -t
-
-                    # Reload nginx to pick up any changes
-                    sudo systemctl reload nginx
-
-                    echo "✅ Nginx reloaded successfully"
-
-                    # Verify nginx is running
-                    # sudo systemctl status nginx --no-pager
-                EOF
+              #!/bin/bash
+            echo "Reloading Nginx..."
+            ssh -o StrictHostKeyChecking=no -p 65518 jerrin@49.204.64.58 bash <<EOF
+            set -e
+            sudo nginx -t
+            sudo systemctl reload nginx
+            echo "✅ Nginx reloaded successfully"
+            EOF
             """
         }
     }
