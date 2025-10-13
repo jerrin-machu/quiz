@@ -1,5 +1,8 @@
 pipeline {
      agent any
+     options {
+     buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '29', numToKeepStr: '1')
+    }
     
     // environment {
     //     PROD_SSH_HOST = '192.168.50.187'
