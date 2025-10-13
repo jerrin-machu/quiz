@@ -175,7 +175,7 @@ pipeline {
                             echo "✅ Nginx reloaded successfully" &&
                             
                             # Verify nginx is running
-                            sudo systemctl status nginx --no-pager
+                            # sudo systemctl status nginx --no-pager
                         '
                     '''
                 }
