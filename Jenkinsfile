@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label: 'built-in'
+        label: 'master'
     }
     
     // environment {
