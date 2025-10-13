@@ -1,12 +1,23 @@
 pipeline {
     agent any
     
+    // environment {
+    //     PROD_SSH_HOST = '192.168.50.187'
+    //     PROD_SSH_USER = 'jerrin'
+    //     PROD_DEPLOY_DIR = '/home/jerrin/react-app'
+    //     BUILD_DIR = 'dist' // change to 'build' if using CRA
+    // }
+
+    
     environment {
-        PROD_SSH_HOST = '192.168.50.187'
+        PROD_SSH_HOST = '49.204.64.58'
         PROD_SSH_USER = 'jerrin'
+        PROD_SSH_PORT = '65518'
         PROD_DEPLOY_DIR = '/home/jerrin/react-app'
-        BUILD_DIR = 'dist' // change to 'build' if using CRA
+        BUILD_DIR = 'dist'
+        SSH_CREDENTIALS_ID = 'blackwidow-app-nginx'
     }
+    
     
     stages {
         stage('Checkout') {
@@ -87,10 +98,10 @@ pipeline {
                     // Verify the archive exists
                     sh 'ls -la react-build.tar.gz'
                 }
-                sshagent(['deploy-key']) {
+                sshagent(['blackwidow-app-nginx']) {
                     sh '''
                         echo "Copying build to remote server..."
-                        scp -o StrictHostKeyChecking=no -v react-build.tar.gz $PROD_SSH_USER@$PROD_SSH_HOST:/tmp/
+                        scp -o StrictHostKeyChecking=no -v -P ${PROD_SSH_PORT} react-build.tar.gz $PROD_SSH_USER@$PROD_SSH_HOST:/tmp/
                         echo "Copy completed"
                     '''
                 }
@@ -99,10 +110,10 @@ pipeline {
         
         stage('Deploy on server') {
             steps {
-                sshagent(['deploy-key']) {
+                sshagent(['blackwidow-app-nginx']) {
                     sh '''
                         echo "Deploying on remote server..."
-                        ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST '
+                        ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
                             echo "Creating deployment directory..." &&
                             mkdir -p '$PROD_DEPLOY_DIR' &&
                             
@@ -148,7 +159,34 @@ pipeline {
                 }
             }
         }
-    }
+
+      stage('Reload Nginx') {
+            steps {
+                sshagent(['blackwidow-app-nginx']) {
+                    sh '''
+                        echo "Reloading Nginx..."
+                        ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
+                            # Test nginx configuration first
+                            sudo nginx -t &&
+                            
+                            # Reload nginx to pick up any changes
+                            sudo systemctl reload nginx &&
+                            
+                            echo "✅ Nginx reloaded successfully" &&
+                            
+                            # Verify nginx is running
+                            sudo systemctl status nginx --no-pager
+                        '
+                    '''
+                }
+            }
+        }
+        }
+
+
+
+
+    
     
     post {
         always {
@@ -163,3 +201,5 @@ pipeline {
         }
     }
 }
+    
+
