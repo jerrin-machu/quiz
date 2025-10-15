@@ -1,14 +1,6 @@
 pipeline {
   agent any
 
-  parameters {
-    choice(
-      name: 'BRANCH',
-      choices: ['dev', 'main', 'prod', 'stage'],
-      description: 'Select branch to deploy'
-    )
-  }
-
   options {
     buildDiscarder logRotator(daysToKeepStr: '29', numToKeepStr: '1')
   }
@@ -26,11 +18,13 @@ pipeline {
     stage('Checkout') {
       steps {
         script {
-          echo "🌀 Checking out branch: ${params.BRANCH}"
+          // Remove 'origin/' prefix if present
+          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
+          echo "🌀 Checking out branch: ${cleanBranch}"
 
           checkout([
             $class: 'GitSCM',
-            branches: [[name: "*/${params.BRANCH}"]],
+            branches: [[name: "${cleanBranch}"]],
             doGenerateSubmoduleConfigurations: false,
             extensions: [],
             userRemoteConfigs: [[
@@ -45,7 +39,8 @@ pipeline {
     stage('Install & Build') {
       steps {
         script {
-          echo "⚙️ Building ${params.BRANCH}..."
+          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
+          echo "⚙️ Building ${cleanBranch}..."
 
           docker.image('node:18').inside('-u root') {
             sh '''
