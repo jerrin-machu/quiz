@@ -26,7 +26,7 @@ pipeline {
           echo "🌀 Checking out branch: ${cleanBranch}"
 
           checkout([$class: 'GitSCM',
-            branches: [[name: "refs/heads/${cleanBranch}"]],
+           branches: [[name: "${cleanBranch}"]],
             userRemoteConfigs: [[
               url: 'https://github.com/jerrin-machu/quiz.git'
             ]]
