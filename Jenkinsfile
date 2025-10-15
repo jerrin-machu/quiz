@@ -18,13 +18,11 @@ pipeline {
     stage('Checkout') {
       steps {
         script {
-          // Remove 'origin/' prefix if present
-          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
-          echo "🌀 Checking out branch: ${cleanBranch}"
+          echo "🌀 Checking out branch: ${params.BRANCH}"
 
           checkout([
             $class: 'GitSCM',
-            branches: [[name: "${cleanBranch}"]],
+            branches: [[name: "*/${params.BRANCH}"]],
             doGenerateSubmoduleConfigurations: false,
             extensions: [],
             userRemoteConfigs: [[
@@ -39,8 +37,7 @@ pipeline {
     stage('Install & Build') {
       steps {
         script {
-          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
-          echo "⚙️ Building ${cleanBranch}..."
+          echo "⚙️ Building ${params.BRANCH}..."
 
           docker.image('node:18').inside('-u root') {
             sh '''
