@@ -92,26 +92,27 @@ pipeline {
         sshagent(['blackwidow-app-nginx']) {
           sh '''
             echo "Starting deployment..."
-            ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} ${PROD_SSH_USER}@${PROD_SSH_HOST} '
+            ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} ${PROD_SSH_USER}@${PROD_SSH_HOST} "
               set -e
-              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-              TEMP_DIR=${PROD_DEPLOY_DIR}/temp_${TIMESTAMP}
+              DEPLOY_DIR=${PROD_DEPLOY_DIR}
+              TIMESTAMP=\\$(date +%Y%m%d_%H%M%S)
+              TEMP_DIR=\\${DEPLOY_DIR}/temp_\\${TIMESTAMP}
 
-              mkdir -p $TEMP_DIR
-              tar -xzf /tmp/react-build.tar.gz -C $TEMP_DIR --strip-components=1
+              mkdir -p \\${TEMP_DIR}
+              tar -xzf /tmp/react-build.tar.gz -C \\${TEMP_DIR} --strip-components=1
 
-              if [ -d "${PROD_DEPLOY_DIR}/current" ]; then
-                rm -rf ${PROD_DEPLOY_DIR}/backup || true
-                mv ${PROD_DEPLOY_DIR}/current ${PROD_DEPLOY_DIR}/backup || true
+              if [ -d \\\"\\${DEPLOY_DIR}/current\\\" ]; then
+                rm -rf \\${DEPLOY_DIR}/backup || true
+                mv \\${DEPLOY_DIR}/current \\${DEPLOY_DIR}/backup || true
               fi
 
-              mv $TEMP_DIR ${PROD_DEPLOY_DIR}/current
-              chmod -R 755 ${PROD_DEPLOY_DIR}/current
+              mv \\${TEMP_DIR} \\${DEPLOY_DIR}/current
+              chmod -R 755 \\${DEPLOY_DIR}/current
               rm /tmp/react-build.tar.gz
 
-              echo "✅ Deployment completed"
-              ls -la ${PROD_DEPLOY_DIR}/
-            '
+              echo '✅ Deployment completed'
+              ls -la \\${DEPLOY_DIR}/
+            "
           '''
         }
       }
