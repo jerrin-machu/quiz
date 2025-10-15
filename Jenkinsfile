@@ -1,5 +1,9 @@
 pipeline {
      agent any
+     parameters {
+    string(name: 'BRANCH', defaultValue: 'origin/main', description: 'Select branch to deploy')
+  }
+
      options {
      buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '29', numToKeepStr: '1')
     }
@@ -25,13 +29,27 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                script {
+                   // Remove "origin/" prefix if it exists
+          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
+          echo "🌀 Checking out branch: ${cleanBranch}"
+
+          checkout([$class: 'GitSCM',
+            branches: [[name: "refs/heads/${cleanBranch}"]],
+            userRemoteConfigs: [[
+              url: 'https://github.com/jerrin-machu/quiz.git',
+            //   credentialsId: 'github-cred-id'  // if private repo
+            ]]
+          ]) 
+                }
             }
         }
         
         stage('Install & Build') {
             steps {
                 script {
+
+                     echo "⚙️ Building ${params.BRANCH}..."
                     // Use docker.image().inside() to ensure files persist to host workspace
                     docker.image('node:18').inside('-u root') {
                         sh '''
@@ -113,53 +131,64 @@ pipeline {
         
         stage('Deploy on server') {
             steps {
-                sshagent(['blackwidow-app-nginx']) {
-                    sh '''
-                        echo "Deploying on remote server..."
-                        ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
-                            echo "Creating deployment directory..." &&
-                            mkdir -p '$PROD_DEPLOY_DIR' &&
-                            
-                            echo "Checking current ownership..." &&
-                            ls -la '$PROD_DEPLOY_DIR'/ || true &&
-                            
-                            # Use timestamp-based approach to avoid permission conflicts
-                            TIMESTAMP=$(date +%Y%m%d_%H%M%S) &&
-                            TEMP_DIR='$PROD_DEPLOY_DIR'/temp_$TIMESTAMP &&
-                            
-                            echo "Creating temporary deployment directory: $TEMP_DIR" &&
-                            mkdir -p $TEMP_DIR &&
-                            
-                            echo "Extracting build files to temporary directory..." &&
-                            tar -xzf /tmp/react-build.tar.gz -C $TEMP_DIR --strip-components=1 &&
-                            
-                            echo "Backing up current deployment..." &&
-                            if [ -d '$PROD_DEPLOY_DIR'/current ]; then
-                                if [ -d '$PROD_DEPLOY_DIR'/backup ]; then
-                                    echo "Removing old backup..." &&
-                                    rm -rf '$PROD_DEPLOY_DIR'/backup || true
-                                fi &&
-                                echo "Moving current to backup..." &&
-                                mv '$PROD_DEPLOY_DIR'/current '$PROD_DEPLOY_DIR'/backup || true
-                            fi &&
-                            
-                            echo "Moving new deployment to current..." &&
-                            mv $TEMP_DIR '$PROD_DEPLOY_DIR'/current &&
-                            
-                            echo "Setting permissions..." &&
-                            chmod -R 755 '$PROD_DEPLOY_DIR'/current &&
-                            
-                            echo "Cleaning up..." &&
-                            rm /tmp/react-build.tar.gz &&
-                            
-                            echo "Deployment completed successfully" &&
-                            echo "App deployed to: '$PROD_DEPLOY_DIR'/current" &&
-                            
-                            echo "Final directory structure:" &&
-                            ls -la '$PROD_DEPLOY_DIR'/
-                        '
-                    '''
-                }
+
+                    script {
+
+                        if (params.BRANCH.contains('prod')) {
+                            echo "🚀 Deploying to Production"
+                        } else if (params.BRANCH.contains('stage')) {
+                            echo "🚀 Deploying to Staging"
+                        } else {
+                             echo "🚀 Deploying to Development"
+                        }
+                        sshagent(['blackwidow-app-nginx']) {
+                            sh '''
+                                echo "Deploying on remote server..."
+                                ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} $PROD_SSH_USER@$PROD_SSH_HOST '
+                                    echo "Creating deployment directory..." &&
+                                    mkdir -p '$PROD_DEPLOY_DIR' &&
+                                    
+                                    echo "Checking current ownership..." &&
+                                    ls -la '$PROD_DEPLOY_DIR'/ || true &&
+                                    
+                                    # Use timestamp-based approach to avoid permission conflicts
+                                    TIMESTAMP=$(date +%Y%m%d_%H%M%S) &&
+                                    TEMP_DIR='$PROD_DEPLOY_DIR'/temp_$TIMESTAMP &&
+                                    
+                                    echo "Creating temporary deployment directory: $TEMP_DIR" &&
+                                    mkdir -p $TEMP_DIR &&
+                                    
+                                    echo "Extracting build files to temporary directory..." &&
+                                    tar -xzf /tmp/react-build.tar.gz -C $TEMP_DIR --strip-components=1 &&
+                                    
+                                    echo "Backing up current deployment..." &&
+                                    if [ -d '$PROD_DEPLOY_DIR'/current ]; then
+                                        if [ -d '$PROD_DEPLOY_DIR'/backup ]; then
+                                            echo "Removing old backup..." &&
+                                            rm -rf '$PROD_DEPLOY_DIR'/backup || true
+                                        fi &&
+                                        echo "Moving current to backup..." &&
+                                        mv '$PROD_DEPLOY_DIR'/current '$PROD_DEPLOY_DIR'/backup || true
+                                    fi &&
+                                    
+                                    echo "Moving new deployment to current..." &&
+                                    mv $TEMP_DIR '$PROD_DEPLOY_DIR'/current &&
+                                    
+                                    echo "Setting permissions..." &&
+                                    chmod -R 755 '$PROD_DEPLOY_DIR'/current &&
+                                    
+                                    echo "Cleaning up..." &&
+                                    rm /tmp/react-build.tar.gz &&
+                                    
+                                    echo "Deployment completed successfully" &&
+                                    echo "App deployed to: '$PROD_DEPLOY_DIR'/current" &&
+                                    
+                                    echo "Final directory structure:" &&
+                                    ls -la '$PROD_DEPLOY_DIR'/
+                                '
+                            '''
+                        }
+                    }
             }
         }
 
