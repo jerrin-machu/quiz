@@ -2,7 +2,11 @@ pipeline {
   agent any
 
   parameters {
-    string(name: 'BRANCH', defaultValue: 'main', description: 'Select branch to deploy')
+    choice(
+      name: 'BRANCH',
+      choices: ['dev', 'main', 'prod', 'stage'],
+      description: 'Select branch to deploy'
+    )
   }
 
   options {
@@ -20,33 +24,18 @@ pipeline {
 
   stages {
     stage('Checkout') {
-  steps {
-    script {
-      def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
-      echo "🌀 Checking out branch: ${cleanBranch}"
-
-      checkout([
-        $class: 'GitSCM',
-        branches: [[name: "${cleanBranch}"]],
-        doGenerateSubmoduleConfigurations: false,
-        extensions: [],
-        userRemoteConfigs: [[
-          url: 'https://github.com/jerrin-machu/quiz.git',
-          credentialsId: 'blackwidow-app-nginx'
-        ]]
-      ])
-    }
-  }
-}
       steps {
         script {
-          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
-          echo "🌀 Checking out branch: ${cleanBranch}"
+          echo "🌀 Checking out branch: ${params.BRANCH}"
 
-          checkout([$class: 'GitSCM',
-           branches: [[name: "${cleanBranch}"]],
+          checkout([
+            $class: 'GitSCM',
+            branches: [[name: "*/${params.BRANCH}"]],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [],
             userRemoteConfigs: [[
-              url: 'https://github.com/jerrin-machu/quiz.git'
+              url: 'https://github.com/jerrin-machu/quiz.git',
+              credentialsId: 'blackwidow-app-nginx'
             ]]
           ])
         }
