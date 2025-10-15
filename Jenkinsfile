@@ -20,6 +20,24 @@ pipeline {
 
   stages {
     stage('Checkout') {
+  steps {
+    script {
+      def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
+      echo "🌀 Checking out branch: ${cleanBranch}"
+
+      checkout([
+        $class: 'GitSCM',
+        branches: [[name: "${cleanBranch}"]],
+        doGenerateSubmoduleConfigurations: false,
+        extensions: [],
+        userRemoteConfigs: [[
+          url: 'https://github.com/jerrin-machu/quiz.git',
+          credentialsId: 'blackwidow-app-nginx'
+        ]]
+      ])
+    }
+  }
+}
       steps {
         script {
           def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
