@@ -1,5 +1,9 @@
 pipeline {
      agent any
+     parameters {
+    string(name: 'BRANCH', defaultValue: 'origin/main', description: 'Select branch to deploy')
+  }
+
      options {
      buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '29', numToKeepStr: '1')
     }
@@ -25,13 +29,27 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                script {
+                   // Remove "origin/" prefix if it exists
+          def cleanBranch = params.BRANCH.replaceAll(/^origin\//, '')
+          echo "🌀 Checking out branch: ${cleanBranch}"
+
+          checkout([$class: 'GitSCM',
+            branches: [[name: "refs/heads/${cleanBranch}"]],
+            userRemoteConfigs: [[
+              url: 'https://github.com/jerrin-machu/quiz.git',
+              credentialsId: 'github-cred-id'  // if private repo
+            ]]
+          ]) 
+                }
             }
         }
         
         stage('Install & Build') {
             steps {
                 script {
+
+                     echo "⚙️ Building ${params.BRANCH}..."
                     // Use docker.image().inside() to ensure files persist to host workspace
                     docker.image('node:18').inside('-u root') {
                         sh '''
@@ -113,6 +131,8 @@ pipeline {
         
         stage('Deploy on server') {
             steps {
+                
+
                 sshagent(['blackwidow-app-nginx']) {
                     sh '''
                         echo "Deploying on remote server..."
