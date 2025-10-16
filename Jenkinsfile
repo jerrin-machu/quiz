@@ -14,6 +14,7 @@ pipeline {
     IMAGE_TAG = "${env.BUILD_NUMBER}"
     DOCKER_REGISTRY = 'jerrinmachu'     // Change this if using private registry
                        // Replace with your target server IP
+    DOCKER_CREDENTIALS = credentials('quiz-app-docker-hub')
         
   }
 
@@ -46,5 +47,21 @@ pipeline {
                 }
             }
     }
+
+            stage('Push to Registry') {
+            when {
+                expression { return env.DOCKER_REGISTRY != '' }
+            }
+            steps {
+                echo "Pushing image to Docker registry..."
+                script {
+                    sh """
+                        echo "$DOCKER_CREDENTIALS_PSW" | docker login -u "$DOCKER_CREDENTIALS_USR" --password-stdin
+                        docker push ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
+                    """
+                }
+            }
+        }
+
   }
 }
