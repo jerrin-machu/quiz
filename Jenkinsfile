@@ -78,7 +78,7 @@ pipeline {
                     docker rm ${APP_NAME} || true
 
                     echo "Starting new container..."
-                    docker run -d --name ${APP_NAME} -p 8080:80 ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
+                    docker run -d --name ${APP_NAME} -p 51873:51873 ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
 
                     echo "Deployment complete!"
                 '
