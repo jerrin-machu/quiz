@@ -74,10 +74,17 @@ pipeline {
                ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} ${PROD_SSH_USER}@${PROD_SSH_HOST} "
                     
                docker pull ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG} || true &&
+
+                echo "Stopping and removing old container (if exists)..."
+                    docker stop ${APP_NAME} || true
+                    docker rm ${APP_NAME} || true
                
                docker run -d --name ${APP_NAME} -p 8080:80 ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
                     
-                    
+                  echo "Starting new container..."
+                    docker run -d --name ${APP_NAME} -p 8080:80 ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
+
+                    echo "Deployment complete!"   
                     
                     
                     "
