@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  quiz-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quiz-app-dev
+    ports:
+      - "5173:5173"         # Vite dev server port
+    volumes:
+      - .:/app              # Mount local project to container
+      - /app/node_modules   # Prevent overwriting node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true  # Enables live reload inside Docker
+    command: npm run dev -- --host

@@ -20,7 +20,7 @@ function App() {
   console.log(userAnswer);
   return (
     <div className="app">
-      <h1>World Quiz for students</h1>
+      <h1>World Quiz for students and Teachers</h1>
       {/* Questions component */}
 
       {currentQuestion < questions.length && (
