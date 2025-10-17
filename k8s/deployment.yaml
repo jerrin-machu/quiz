@@ -20,5 +20,6 @@ spec:
       containers:
         - name: quiz-app
           image: quiz-app:latest # Jenkins replaces this dynamically
+          imagePullPolicy: Never
           ports:
             - containerPort: 80
