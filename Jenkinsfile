@@ -62,7 +62,10 @@ pipeline {
                 scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
                 ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "
                     sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar &&
-                    kubectl apply -f ~/quiz-app/k8s/ &&
+                    kubectl apply -f ~/quiz-app/k8s/namespace.yaml &&
+                    kubectl apply -f ~/quiz-app/k8s/deployment.yaml &&
+                    kubectl apply -f ~/quiz-app/k8s/service.yaml
+
                     kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns
                 "
             '''
