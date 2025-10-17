@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,6 +18,8 @@ spec:
         kubernetes.io/hostname: k8s-master
       containers:
         - name: quiz-app
-          image: quiz-app:latest
+          image: docker.io/library/quiz-app:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 80
+          
