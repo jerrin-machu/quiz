@@ -54,23 +54,33 @@ pipeline {
         stage('Load Image into containerd & Deploy') {
     steps {
         sshagent(['k8s-master-ssh']) {
-            sh '''
-                echo "📦 Importing image and deploying..."
-                ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "
-                    mkdir -p ~/quiz-app/k8s
-                "
-                scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
-                ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "
-                    sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar &&
-                LATEST_TAG=$(sudo ctr -n=k8s.io images ls | grep ${APP_NAME} | tail -n 1 | awk '{print $1}') &&
-                sudo ctr -n=k8s.io images tag $LATEST_TAG ${APP_NAME}:latest &&
-                kubectl apply -f ~/quiz-app/k8s/namespace.yaml &&
-                kubectl apply -f ~/quiz-app/k8s/deployment.yaml &&
-                kubectl apply -f ~/quiz-app/k8s/service.yaml &&
-                kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns
+           sh """
+        echo "📦 Importing image and deploying..."
+        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} '
+            set -e
+            mkdir -p ~/quiz-app/k8s
+        '
+        scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
+        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} '
+            set -e
+            echo "🚀 Importing image into containerd..."
+            sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar
 
-                "
-            '''
+            echo "🔖 Tagging latest image..."
+            LATEST_TAG=$(sudo ctr -n=k8s.io images ls | grep ${APP_NAME} | tail -n 1 | awk "{print \\$1}")
+            echo "Detected tag: \$LATEST_TAG"
+            sudo ctr -n=k8s.io images tag "\$LATEST_TAG" ${APP_NAME}:latest
+
+            echo "📦 Applying Kubernetes manifests..."
+            kubectl apply -f ~/quiz-app/k8s/namespace.yaml
+            kubectl apply -f ~/quiz-app/k8s/deployment.yaml
+            kubectl apply -f ~/quiz-app/k8s/service.yaml
+
+            echo "⏳ Waiting for rollout..."
+            kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns --timeout=180s || \
+              (echo "⚠️ Rollout timeout — showing pods:" && kubectl get pods -n quiz-app-ns -o wide)
+        '
+    """
         }
     }
 }
