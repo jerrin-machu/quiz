@@ -51,7 +51,7 @@ pipeline {
             }
         }
 
-        stage('Load Image into containerd & Deploy') {
+               stage('Load Image into containerd & Deploy') {
             steps {
                 sshagent([SSH_CREDENTIALS_ID]) {
                     sh """
@@ -64,7 +64,7 @@ pipeline {
                         echo "🛠️  Patching deployment.yaml for correct image reference..."
                         sed -i 's|image:.*|image: docker.io/library/${APP_NAME}:latest|g' k8s/deployment.yaml
                         if ! grep -q "imagePullPolicy" k8s/deployment.yaml; then
-                            sed -i '/image:/a \ \ \ \ imagePullPolicy: Never' k8s/deployment.yaml
+                            sed -i '/image:/a \\\\ \\ \\ \\ imagePullPolicy: Never' k8s/deployment.yaml
                         else
                             sed -i 's|imagePullPolicy:.*|imagePullPolicy: Never|g' k8s/deployment.yaml
                         fi
@@ -99,6 +99,7 @@ pipeline {
                 }
             }
         }
+
 
 
 
