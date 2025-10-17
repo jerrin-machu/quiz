@@ -73,7 +73,7 @@ pipeline {
 
                         # Step 4: Deploy on remote server
                         echo "🚀 Deploying to Kubernetes..."
-                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} << 'REMOTE_COMMANDS'
+                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} << REMOTE_COMMANDS
 set -e
 
 echo "📦 Importing image into containerd (k8s.io namespace)..."
