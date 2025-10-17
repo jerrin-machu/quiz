@@ -52,18 +52,24 @@ pipeline {
         }
 
         stage('Load Image into containerd & Deploy') {
-            steps {
-                sshagent([SSH_CREDENTIALS_ID]) {
-                    sh '''
-                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "
-                            sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar &&
-                            kubectl apply -f ~/quiz-app/k8s/ &&
-                            kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns
-                        "
-                    '''
-                }
-            }
+    steps {
+        sshagent(['k8s-master-ssh']) {
+            sh '''
+                echo "📦 Importing image and deploying..."
+                ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "
+                    mkdir -p ~/quiz-app/k8s
+                "
+                scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
+                ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "
+                    sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar &&
+                    kubectl apply -f ~/quiz-app/k8s/ &&
+                    kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns
+                "
+            '''
         }
+    }
+}
+
     }
 
     post {
