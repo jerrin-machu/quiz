@@ -51,50 +51,54 @@ pipeline {
             }
         }
 
-        stage('Load Image into containerd & Deploy') {
+        stage('Update Deployment & Deploy') {
             steps {
                 sshagent([SSH_CREDENTIALS_ID]) {
-                    sh """
-                        echo "📦 Importing image and deploying..."
+                    sh '''
+                        echo "📦 Preparing deployment..."
 
-                        # Step 1: Prepare directories on master
+                        # Step 1: Create directory
                         ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "mkdir -p ~/quiz-app/k8s"
 
-                        # Step 2: Update deployment.yaml image tag
-                        echo "🛠️  Updating deployment.yaml with build number..."
+                        # Step 2: Update deployment.yaml locally
+                        echo "🛠️  Updating deployment.yaml with build number ${IMAGE_TAG}..."
                         sed -i "s|image: docker.io/library/${APP_NAME}:.*|image: docker.io/library/${APP_NAME}:${IMAGE_TAG}|g" k8s/deployment.yaml
 
-                        echo "✅ Updated deployment.yaml preview:"
+                        echo "✅ Updated deployment.yaml:"
                         cat k8s/deployment.yaml
 
-                        # Step 3: Copy Kubernetes manifests
+                        # Step 3: Copy manifests to server
+                        echo "📋 Copying manifests..."
                         scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
 
-                        # Step 4: Deploy remotely
-                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} bash << 'DEPLOY_EOF'
-                            set -e
-                            echo "🚀 Importing image into containerd (k8s.io namespace)..."
-                            sudo ctr --namespace k8s.io images import /tmp/${APP_NAME}.tar
+                        # Step 4: Deploy on remote server
+                        echo "🚀 Deploying to Kubernetes..."
+                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} << 'REMOTE_COMMANDS'
+set -e
 
-                            echo "📋 Listing imported images in k8s.io namespace..."
-                            sudo ctr --namespace k8s.io images ls | grep ${APP_NAME}
+echo "📦 Importing image into containerd (k8s.io namespace)..."
+sudo ctr --namespace k8s.io images import /tmp/${APP_NAME}.tar
 
-                            echo "✅ Image ${IMAGE_TAG} imported successfully!"
+echo "✅ Image imported!"
 
-                            echo "📦 Applying Kubernetes manifests..."
-                            kubectl apply -f ~/quiz-app/k8s/namespace.yaml
-                            kubectl apply -f ~/quiz-app/k8s/deployment.yaml
-                            kubectl apply -f ~/quiz-app/k8s/service.yaml
+echo "📋 Applying Kubernetes manifests..."
+kubectl apply -f ~/quiz-app/k8s/namespace.yaml
+kubectl apply -f ~/quiz-app/k8s/deployment.yaml
+kubectl apply -f ~/quiz-app/k8s/service.yaml
 
-                            echo "🔄 Forcing rollout with new image tag..."
-                            kubectl set image deployment/${APP_NAME}-deployment -n quiz-app-ns \
-                              ${APP_NAME}=docker.io/library/${APP_NAME}:${IMAGE_TAG}
+echo "🔄 Forcing rollout with new image tag..."
+kubectl set image deployment/${APP_NAME}-deployment -n quiz-app-ns ${APP_NAME}=docker.io/library/${APP_NAME}:${IMAGE_TAG}
 
-                            echo "⏳ Waiting for rollout..."
-                            kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns --timeout=180s || \
-                              (echo "⚠️ Rollout timeout — showing pods:" && kubectl get pods -n quiz-app-ns -o wide)
-                        DEPLOY_EOF
-                    """
+echo "⏳ Waiting for rollout (up to 180 seconds)..."
+kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns --timeout=180s || {
+    echo "⚠️ Rollout timed out - checking pod status..."
+    kubectl get pods -n quiz-app-ns -o wide
+    exit 1
+}
+
+echo "✅ Deployment successful!"
+REMOTE_COMMANDS
+                    '''
                 }
             }
         }
@@ -105,7 +109,7 @@ pipeline {
             echo "✅ Deployment completed successfully!"
         }
         failure {
-            echo "❌ Deployment failed — please check SSH or Kubernetes configuration."
+            echo "❌ Deployment failed — check logs above for details"
         }
     }
 }
