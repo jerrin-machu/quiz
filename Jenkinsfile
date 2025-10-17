@@ -51,42 +51,55 @@ pipeline {
             }
         }
 
-stage('Load Image into containerd & Deploy') {
-    steps {
-        sshagent([SSH_CREDENTIALS_ID]) {
-            sh """
-                echo "📦 Importing image and deploying..."
+        stage('Load Image into containerd & Deploy') {
+            steps {
+                sshagent([SSH_CREDENTIALS_ID]) {
+                    sh """
+                        echo "📦 Importing image and deploying..."
 
-                # Step 1: Prepare directories
-                ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "mkdir -p ~/quiz-app/k8s"
+                        # Step 1: Prepare directories on master
+                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "mkdir -p ~/quiz-app/k8s"
 
-                # Step 2: Copy YAMLs
-                scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
+                        # Step 2: Patch deployment.yaml before copying
+                        echo "🛠️  Patching deployment.yaml for correct image reference..."
+                        sed -i 's|image:.*|image: docker.io/library/${APP_NAME}:latest|g' k8s/deployment.yaml
+                        if ! grep -q "imagePullPolicy" k8s/deployment.yaml; then
+                            sed -i '/image:/a \ \ \ \ imagePullPolicy: Never' k8s/deployment.yaml
+                        else
+                            sed -i 's|imagePullPolicy:.*|imagePullPolicy: Never|g' k8s/deployment.yaml
+                        fi
 
-                # Step 3: Deploy remotely
-                ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "bash -s" <<'EOF'
-                    set -e
-                    echo "🚀 Importing image into containerd..."
-                    sudo ctr images import /tmp/${APP_NAME}.tar
+                        echo "✅ Patched deployment.yaml preview:"
+                        cat k8s/deployment.yaml
 
-                    echo "🔖 Tagging latest image..."
-                    LATEST_TAG=\$(sudo ctr images ls | grep ${APP_NAME} | tail -n 1 | awk '{print \$1}')
-                    echo "Detected tag: \$LATEST_TAG"
-                    sudo ctr images tag "\$LATEST_TAG" ${APP_NAME}:latest
+                        # Step 3: Copy Kubernetes manifests
+                        scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
 
-                    echo "📦 Applying Kubernetes manifests..."
-                    kubectl apply -f ~/quiz-app/k8s/namespace.yaml
-                    kubectl apply -f ~/quiz-app/k8s/deployment.yaml
-                    kubectl apply -f ~/quiz-app/k8s/service.yaml
+                        # Step 4: Deploy remotely
+                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "bash -s" <<'EOF'
+                            set -e
+                            echo "🚀 Importing image into containerd..."
+                            sudo ctr images import /tmp/${APP_NAME}.tar
 
-                    echo "⏳ Waiting for rollout..."
-                    kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns --timeout=180s || \
-                      (echo "⚠️ Rollout timeout — showing pods:" && kubectl get pods -n quiz-app-ns -o wide)
-                EOF
-            """
+                            echo "🔖 Tagging latest image..."
+                            LATEST_TAG=\$(sudo ctr images ls | grep ${APP_NAME} | tail -n 1 | awk '{print \$1}')
+                            echo "Detected tag: \$LATEST_TAG"
+                            sudo ctr images tag "\$LATEST_TAG" docker.io/library/${APP_NAME}:latest
+
+                            echo "📦 Applying Kubernetes manifests..."
+                            kubectl apply -f ~/quiz-app/k8s/namespace.yaml
+                            kubectl apply -f ~/quiz-app/k8s/deployment.yaml
+                            kubectl apply -f ~/quiz-app/k8s/service.yaml
+
+                            echo "⏳ Waiting for rollout..."
+                            kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns --timeout=180s || \
+                              (echo "⚠️ Rollout timeout — showing pods:" && kubectl get pods -n quiz-app-ns -o wide)
+                        EOF
+                    """
+                }
+            }
         }
-    }
-}
+
 
 
     }
