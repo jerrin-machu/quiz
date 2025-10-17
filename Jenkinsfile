@@ -64,12 +64,14 @@ pipeline {
         ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} '
             set -e
             echo "🚀 Importing image into containerd..."
-            sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar
+            sudo ctr -n=k8s.io images import /tmp/\${APP_NAME}.tar
 
             echo "🔖 Tagging latest image..."
-            LATEST_TAG=$(sudo ctr -n=k8s.io images ls | grep ${APP_NAME} | tail -n 1 | awk "{print \\$1}")
+            LATEST_TAG=$(sudo ctr -n=k8s.io images ls | grep \${APP_NAME} | tail -n 1 | awk "{print \\$1}")
             echo "Detected tag: \$LATEST_TAG"
             sudo ctr -n=k8s.io images tag "\$LATEST_TAG" ${APP_NAME}:latest
+            echo "Detected tag: \$LATEST_TAG"
+            sudo ctr -n=k8s.io images tag "\$LATEST_TAG" \${APP_NAME}:latest
 
             echo "📦 Applying Kubernetes manifests..."
             kubectl apply -f ~/quiz-app/k8s/namespace.yaml
