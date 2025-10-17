@@ -62,8 +62,32 @@ pipeline {
 
                         # Step 2: Patch deployment.yaml with correct indentation
                         echo "🛠️  Patching deployment.yaml for correct image reference..."
-                        sed -i 's|image:.*|image: docker.io/library/${APP_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
-                        sed -i '/^[[:space:]]*image: docker.io\/library\/${APP_NAME}:/a\\          imagePullPolicy: Never' k8s/deployment.yaml
+                        cat > /tmp/patch.yaml << 'PATCH'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quiz-app-deployment
+  namespace: quiz-app-ns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quiz-app
+  template:
+    metadata:
+      labels:
+        app: quiz-app
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-master
+      containers:
+        - name: quiz-app
+          image: docker.io/library/${APP_NAME}:${IMAGE_TAG}
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+PATCH
+                        cp /tmp/patch.yaml k8s/deployment.yaml
 
                         echo "✅ Patched deployment.yaml preview:"
                         cat k8s/deployment.yaml
