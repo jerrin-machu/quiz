@@ -71,27 +71,15 @@ pipeline {
                         scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no -r k8s/* ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:~/quiz-app/k8s/
 
                         # Step 4: Deploy remotely
-                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "bash -s" <<'EOF'
+                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} bash << 'DEPLOY_EOF'
                             set -e
                             echo "🚀 Importing image into containerd (k8s.io namespace)..."
                             sudo ctr --namespace k8s.io images import /tmp/${APP_NAME}.tar
 
-                            echo "📋 Listing imported images..."
-                            sudo ctr images ls | grep ${APP_NAME}
+                            echo "📋 Listing imported images in k8s.io namespace..."
+                            sudo ctr --namespace k8s.io images ls | grep ${APP_NAME}
 
-                            echo "🔖 Tagging image with build number..."
-                            # Get the imported image (should be quiz-app:BUILD_NUMBER format)
-                            IMPORT_TAG=\$(sudo ctr images ls | grep ${APP_NAME} | awk '{print \$1}' | head -n 1)
-                            echo "Imported image tag: \$IMPORT_TAG"
-                            
-                            # Ensure we also have it tagged with the build number for deployment
-                            sudo ctr images tag "\$IMPORT_TAG" docker.io/library/${APP_NAME}:${IMAGE_TAG}
-                            
-                            # Tag as latest for reference
-                            sudo ctr images tag "docker.io/library/${APP_NAME}:${IMAGE_TAG}" docker.io/library/${APP_NAME}:latest || true
-
-                            echo "✅ Final images available:"
-                            sudo ctr images ls | grep ${APP_NAME}
+                            echo "✅ Image ${IMAGE_TAG} imported successfully!"
 
                             echo "📦 Applying Kubernetes manifests..."
                             kubectl apply -f ~/quiz-app/k8s/namespace.yaml
@@ -100,12 +88,12 @@ pipeline {
 
                             echo "🔄 Forcing rollout with new image tag..."
                             kubectl set image deployment/${APP_NAME}-deployment -n quiz-app-ns \
-                              ${APP_NAME}=docker.io/library/${APP_NAME}:${IMAGE_TAG} --record
+                              ${APP_NAME}=docker.io/library/${APP_NAME}:${IMAGE_TAG}
 
                             echo "⏳ Waiting for rollout..."
                             kubectl rollout status deployment/${APP_NAME}-deployment -n quiz-app-ns --timeout=180s || \
                               (echo "⚠️ Rollout timeout — showing pods:" && kubectl get pods -n quiz-app-ns -o wide)
-                        EOF
+                        DEPLOY_EOF
                     """
                 }
             }
