@@ -51,7 +51,7 @@ pipeline {
             }
         }
 
-               stage('Load Image into containerd & Deploy') {
+        stage('Load Image into containerd & Deploy') {
             steps {
                 sshagent([SSH_CREDENTIALS_ID]) {
                     sh """
@@ -60,14 +60,10 @@ pipeline {
                         # Step 1: Prepare directories on master
                         ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} "mkdir -p ~/quiz-app/k8s"
 
-                        # Step 2: Patch deployment.yaml before copying
+                        # Step 2: Patch deployment.yaml with correct indentation
                         echo "🛠️  Patching deployment.yaml for correct image reference..."
-                        sed -i 's|image:.*|image: docker.io/library/${APP_NAME}:latest|g' k8s/deployment.yaml
-                        if ! grep -q "imagePullPolicy" k8s/deployment.yaml; then
-                            sed -i '/image:/a \\\\ \\ \\ \\ imagePullPolicy: Never' k8s/deployment.yaml
-                        else
-                            sed -i 's|imagePullPolicy:.*|imagePullPolicy: Never|g' k8s/deployment.yaml
-                        fi
+                        sed -i 's|image:.*|image: docker.io/library/${APP_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
+                        sed -i '/^[[:space:]]*image: docker.io\/library\/${APP_NAME}:/a\\          imagePullPolicy: Never' k8s/deployment.yaml
 
                         echo "✅ Patched deployment.yaml preview:"
                         cat k8s/deployment.yaml
@@ -81,9 +77,17 @@ pipeline {
                             echo "🚀 Importing image into containerd..."
                             sudo ctr images import /tmp/${APP_NAME}.tar
 
-                            echo "🔖 Tagging latest image..."
-                            LATEST_TAG=\$(sudo ctr images ls | grep ${APP_NAME} | tail -n 1 | awk '{print \$1}')
-                            echo "Detected tag: \$LATEST_TAG"
+                            echo "🔖 Handling image tags..."
+                            # Remove the old 'latest' tag if it exists
+                            sudo ctr images rm docker.io/library/${APP_NAME}:latest 2>/dev/null || true
+                            
+                            # Tag the imported image as latest
+                            LATEST_TAG=\$(sudo ctr images ls | grep ${APP_NAME} | grep -v latest | head -n 1 | awk '{print \$1}')
+                            if [ -z "\$LATEST_TAG" ]; then
+                                echo "Using build number tag..."
+                                LATEST_TAG="docker.io/library/${APP_NAME}:${IMAGE_TAG}"
+                            fi
+                            echo "Tagging \$LATEST_TAG as latest..."
                             sudo ctr images tag "\$LATEST_TAG" docker.io/library/${APP_NAME}:latest
 
                             echo "📦 Applying Kubernetes manifests..."
@@ -99,10 +103,6 @@ pipeline {
                 }
             }
         }
-
-
-
-
     }
 
     post {
