@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quiz-app-deployment
+  namespace: quiz-app-ns
+  labels:
+    app: quiz-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quiz-app
+  template:
+    metadata:
+      labels:
+        app: quiz-app
+    spec:
+      containers:
+        - name: quiz-app
+          image: quiz-app:latest # Jenkins replaces this dynamically
+          ports:
+            - containerPort: 80

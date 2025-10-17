@@ -5,84 +5,75 @@ pipeline {
         buildDiscarder logRotator(daysToKeepStr: '29', numToKeepStr: '1')
     }
 
+    
+// Host kuber-2
+//     HostName 14.194.88.34
+//     User jerry
+//     Port 8022
+
     environment {
-        PROD_SSH_HOST = '49.204.64.58'
-        PROD_SSH_USER = 'jerrin'
-        PROD_SSH_PORT = '65518'
+        K8S_MASTER_HOST = '14.194.88.34'
+        K8S_MASTER_USER = 'jerry' // SSH user on your master node
+        K8S_MASTER_PORT = '8022'    // change if custom SSH port
         APP_NAME = 'quiz-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        SSH_CREDENTIALS_ID = 'blackwidow-app-nginx'
-        APP_PORT = '51873'   // <--- ✅ Updated port
+        SSH_CREDENTIALS_ID = 'blackwidow-app-nginx'  // Jenkins SSH key credential ID
+        KUBE_NAMESPACE = 'quiz-app-ns'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    echo "🌀 Checking out branch: ${params.BRANCH}"
-
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: "*/${params.BRANCH}"]],
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [],
-                        userRemoteConfigs: [[
-                            url: 'https://github.com/jerrin-machu/quiz.git',
-                            credentialsId: 'blackwidow-app-nginx'
-                        ]]
-                    ])
-                }
+                checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "🐳 Building Docker image for ${APP_NAME}:${IMAGE_TAG}"
                 sh "docker build -t ${APP_NAME}:${IMAGE_TAG} ."
             }
         }
 
-        stage('Transfer Image to Target Server') {
+        stage('Transfer Image to Cluster') {
             steps {
-                echo "📦 Exporting image and sending to target server..."
                 sshagent(['blackwidow-app-nginx']) {
                     sh """
+                        echo "📦 Saving Docker image..."
                         docker save ${APP_NAME}:${IMAGE_TAG} -o ${APP_NAME}.tar
-                        scp -P ${PROD_SSH_PORT} -o StrictHostKeyChecking=no ${APP_NAME}.tar ${PROD_SSH_USER}@${PROD_SSH_HOST}:/tmp/
+
+                        echo "🚀 Copying image to Kubernetes master..."
+                        scp -P ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${APP_NAME}.tar ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:/tmp/
+
+                        echo "🧹 Cleaning up local tar..."
                         rm -f ${APP_NAME}.tar
                     """
                 }
             }
         }
 
-        stage('Deploy on Target Server') {
+        stage('Load Image into containerd & Deploy') {
             steps {
                 sshagent(['blackwidow-app-nginx']) {
                     sh """
-                        echo "🚀 Deploying on target server..."
+                        echo "🧩 Loading image into containerd on cluster master..."
 
-                        ssh -o StrictHostKeyChecking=no -p ${PROD_SSH_PORT} ${PROD_SSH_USER}@${PROD_SSH_HOST} '
-                            echo "📦 Loading image..."
-                            docker load -i /tmp/${APP_NAME}.tar
-
-                            echo "🧹 Removing old container (if exists)..."
-                            docker stop ${APP_NAME} || true
-                            docker rm ${APP_NAME} || true
-
-                            echo "🧹 Checking if port ${APP_PORT} is in use..."
-                            if lsof -i:${APP_PORT} -t > /tmp/port_pid.txt 2>/dev/null; then
-                                echo "⚠️ Port ${APP_PORT} in use — killing process..."
-                                xargs kill -9 < /tmp/port_pid.txt || true
-                                rm -f /tmp/port_pid.txt
-                            fi
-
-                            echo "🔥 Running new container on port ${APP_PORT}..."
-                            docker run -d --name ${APP_NAME} -p ${APP_PORT}:80 ${APP_NAME}:${IMAGE_TAG}
-
-                            echo "🧼 Cleaning up..."
+                        ssh -p ${K8S_MASTER_PORT} -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} '
+                            echo "📥 Importing image into containerd..."
+                            sudo ctr -n=k8s.io images import /tmp/${APP_NAME}.tar
                             rm -f /tmp/${APP_NAME}.tar
 
-                            echo "✅ Deployment complete! App is running on port ${APP_PORT}"
+                            echo "🧾 Updating deployment YAML..."
+                            sed -i "s#jerrinmachu/quiz-app:latest#${APP_NAME}:${IMAGE_TAG}#g" ~/quiz-app/k8s/deployment.yaml || true
+
+                            echo "🚀 Applying Kubernetes manifests..."
+                            kubectl apply -f ~/quiz-app/k8s/namespace.yaml
+                            kubectl apply -f ~/quiz-app/k8s/deployment.yaml
+                            kubectl apply -f ~/quiz-app/k8s/service.yaml
+
+                            echo "⏳ Waiting for rollout..."
+                            kubectl rollout status deployment/${APP_NAME}-deployment -n ${KUBE_NAMESPACE}
+
+                            echo "✅ Deployment complete and running!"
                         '
                     """
                 }
@@ -92,9 +83,9 @@ pipeline {
         stage('Health Check') {
             steps {
                 sh """
-                    echo "🩺 Checking if app is live on ${PROD_SSH_HOST}:${APP_PORT}..."
+                    echo "🔎 Checking if app is reachable..."
                     sleep 5
-                    curl -I http://${PROD_SSH_HOST}:${APP_PORT} || echo "⚠️ App might not be reachable yet"
+                    curl -I http://${K8S_MASTER_HOST}:51873 || echo "⚠️ App might not be reachable yet"
                 """
             }
         }
@@ -102,7 +93,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment successful on port ${APP_PORT}!"
+            echo "✅ Kubernetes deployment successful!"
         }
         failure {
             echo "❌ Deployment failed!"
